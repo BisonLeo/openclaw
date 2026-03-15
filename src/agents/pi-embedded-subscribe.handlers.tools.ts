@@ -20,6 +20,7 @@ import {
 import { inferToolMetaFromArgs } from "./pi-embedded-utils.js";
 import { buildToolMutationState, isSameToolMutationAction } from "./tool-mutation.js";
 import { normalizeToolName } from "./tool-policy.js";
+import * as toolRunLogger from "./tool-run-logger.js";
 
 /** Track tool execution start times and args for after_tool_call hook */
 const toolStartData = new Map<string, { startTime: number; args: unknown }>();
@@ -408,6 +409,16 @@ export async function handleToolExecutionEnd(
   ctx.log.debug(
     `embedded run tool end: runId=${ctx.params.runId} tool=${toolName} toolCallId=${toolCallId}`,
   );
+  toolRunLogger.logToolRun({
+    runId: ctx.params.runId,
+    toolCallId,
+    toolName,
+    args: startData?.args,
+    sanitizedResult,
+    isError: isToolError,
+    meta,
+    durationMs: startData?.startTime != null ? Date.now() - startData.startTime : undefined,
+  });
 
   emitToolResultOutput({ ctx, toolName, meta, isToolError, result, sanitizedResult });
 
