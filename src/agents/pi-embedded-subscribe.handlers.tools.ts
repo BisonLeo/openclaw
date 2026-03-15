@@ -25,6 +25,7 @@ import { inferToolMetaFromArgs } from "./pi-embedded-utils.js";
 import { consumeAdjustedParamsForToolCall } from "./pi-tools.before-tool-call.js";
 import { buildToolMutationState, isSameToolMutationAction } from "./tool-mutation.js";
 import { normalizeToolName } from "./tool-policy.js";
+import * as toolRunLogger from "./tool-run-logger.js";
 
 type ToolStartRecord = {
   startTime: number;
@@ -544,6 +545,16 @@ export async function handleToolExecutionEnd(
   ctx.log.debug(
     `embedded run tool end: runId=${ctx.params.runId} tool=${toolName} toolCallId=${toolCallId}`,
   );
+  toolRunLogger.logToolRun({
+    runId: ctx.params.runId,
+    toolCallId,
+    toolName,
+    args: startData?.args,
+    sanitizedResult,
+    isError: isToolError,
+    meta,
+    durationMs: startData?.startTime != null ? Date.now() - startData.startTime : undefined,
+  });
 
   await emitToolResultOutput({ ctx, toolName, meta, isToolError, result, sanitizedResult });
 

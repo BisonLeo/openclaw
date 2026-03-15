@@ -176,6 +176,13 @@ export type LoggingConfig = {
   redactSensitive?: "off" | "tools";
   /** Regex patterns used to redact sensitive tokens (defaults apply when unset). */
   redactPatterns?: string[];
+  /** Dedicated tool-run log file. Default: ~/.openclaw/logs/tool-runs.jsonl. */
+  toolRuns?: {
+    /** Enable tool-run logging. Default: true. */
+    enabled?: boolean;
+    /** Path to the JSONL log file. */
+    file?: string;
+  };
 };
 
 export type DiagnosticsOtelConfig = {
