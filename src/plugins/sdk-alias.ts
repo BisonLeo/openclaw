@@ -124,7 +124,11 @@ function resolveLoaderPluginSdkPackageRoot(
     fromExplicitHints ??
     findNearestPluginSdkPackageRoot(path.dirname(params.modulePath)) ??
     (params.cwd ? findNearestPluginSdkPackageRoot(params.cwd) : null) ??
-    findNearestPluginSdkPackageRoot(process.cwd())
+    findNearestPluginSdkPackageRoot(process.cwd()) ??
+    // Final fallback: resolve via argv1 so plugins installed outside the OpenClaw
+    // directory tree (e.g. ~/.openclaw/extensions/*) can still resolve the SDK
+    // when the gateway is started from an unrelated working directory.
+    resolveOpenClawPackageRootSync({ argv1: process.argv[1] })
   );
 }
 

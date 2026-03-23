@@ -51,12 +51,19 @@ function makeTempDir() {
   return dir;
 }
 
-function withCwd<T>(cwd: string, run: () => T): T {
+function withCwd<T>(cwd: string, run: () => T, argv1?: string): T {
   const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(cwd);
+  const origArgv1 = process.argv[1];
+  if (argv1 !== undefined) {
+    process.argv[1] = argv1;
+  }
   try {
     return run();
   } finally {
     cwdSpy.mockRestore();
+    if (argv1 !== undefined) {
+      process.argv[1] = origArgv1;
+    }
   }
 }
 
@@ -395,10 +402,13 @@ describe("plugin sdk alias helpers", () => {
         "./plugin-sdk/channel-runtime": { default: "./dist/plugin-sdk/channel-runtime.js" },
       },
     });
-    const subpaths = withCwd(fixture.root, () =>
-      listPluginSdkExportedSubpaths({
-        modulePath: "/tmp/tsx-cache/openclaw-loader.js",
-      }),
+    const subpaths = withCwd(
+      fixture.root,
+      () =>
+        listPluginSdkExportedSubpaths({
+          modulePath: "/tmp/tsx-cache/openclaw-loader.js",
+        }),
+      "/tmp/fake-runner",
     );
     expect(subpaths).toEqual([]);
   });
@@ -471,13 +481,16 @@ describe("plugin sdk alias helpers", () => {
         "./plugin-sdk/channel-runtime": { default: "./dist/plugin-sdk/channel-runtime.js" },
       },
     });
-    const resolved = withCwd(fixture.root, () =>
-      resolvePluginSdkAlias({
-        srcFile: "channel-runtime.ts",
-        distFile: "channel-runtime.js",
-        modulePath: "/tmp/tsx-cache/openclaw-loader.js",
-        env: { NODE_ENV: undefined },
-      }),
+    const resolved = withCwd(
+      fixture.root,
+      () =>
+        resolvePluginSdkAlias({
+          srcFile: "channel-runtime.ts",
+          distFile: "channel-runtime.js",
+          modulePath: "/tmp/tsx-cache/openclaw-loader.js",
+          env: { NODE_ENV: undefined },
+        }),
+      "/tmp/fake-runner",
     );
     expect(resolved).toBeNull();
   });
