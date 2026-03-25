@@ -9,6 +9,7 @@ import {
 } from "../../plugins/provider-runtime.js";
 import {
   createAnthropicBetaHeadersWrapper,
+  createAnthropicCachePrefixStabilityWrapper,
   createBedrockNoCacheWrapper,
   createAnthropicFastModeWrapper,
   createAnthropicToolPayloadCompatibilityWrapper,
@@ -256,6 +257,7 @@ export function applyExtraParamsToAgent(
     config: cfg,
     workspaceDir,
   });
+  agent.streamFn = createAnthropicCachePrefixStabilityWrapper(agent.streamFn);
   const providerStreamBase = agent.streamFn;
   const pluginWrappedStreamFn = wrapProviderStreamFn({
     provider,
