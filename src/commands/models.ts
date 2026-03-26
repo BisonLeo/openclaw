@@ -1,4 +1,4 @@
-export { githubCopilotLoginCommand } from "../providers/github-copilot-auth.js";
+export { githubCopilotLoginCommand } from "../plugin-sdk/provider-auth-login.js";
 export {
   modelsAliasesAddCommand,
   modelsAliasesListCommand,
@@ -31,3 +31,4 @@ export { modelsListCommand, modelsStatusCommand } from "./models/list.js";
 export { modelsScanCommand } from "./models/scan.js";
 export { modelsSetCommand } from "./models/set.js";
 export { modelsSetImageCommand } from "./models/set-image.js";
+export { modelsTestpingCommand } from "./models/testping.js";

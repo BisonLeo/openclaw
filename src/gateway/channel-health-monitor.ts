@@ -12,7 +12,7 @@ import type { ChannelManager } from "./server-channels.js";
 const log = createSubsystemLogger("gateway/health-monitor");
 
 const DEFAULT_CHECK_INTERVAL_MS = 5 * 60_000;
-const DEFAULT_MONITOR_STARTUP_GRACE_MS = 60_000;
+const DEFAULT_MONITOR_STARTUP_GRACE_MS = 15_000;
 const DEFAULT_COOLDOWN_CYCLES = 2;
 const DEFAULT_MAX_RESTARTS_PER_HOUR = 10;
 const ONE_HOUR_MS = 60 * 60_000;
@@ -89,6 +89,7 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
   let stopped = false;
   let checkInFlight = false;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let initialCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
   const rKey = (channelId: string, accountId: string) => `${channelId}:${accountId}`;
 
@@ -116,6 +117,9 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
         }
         for (const [accountId, status] of Object.entries(accounts)) {
           if (!status) {
+            continue;
+          }
+          if (!channelManager.isHealthMonitorEnabled(channelId as ChannelId, accountId)) {
             continue;
           }
           if (channelManager.isManuallyStopped(channelId as ChannelId, accountId)) {
@@ -177,6 +181,10 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
 
   function stop() {
     stopped = true;
+    if (initialCheckTimer) {
+      clearTimeout(initialCheckTimer);
+      initialCheckTimer = null;
+    }
     if (timer) {
       clearInterval(timer);
       timer = null;
@@ -187,6 +195,14 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
     stopped = true;
   } else {
     abortSignal?.addEventListener("abort", stop, { once: true });
+    // Run an initial check immediately after the startup grace period so
+    // stopped channels (e.g. external plugins) start promptly on gateway boot
+    // rather than waiting for the first full interval tick.
+    const initialCheckDelay = timing.monitorStartupGraceMs + 1_000;
+    initialCheckTimer = setTimeout(() => void runCheck(), initialCheckDelay);
+    if (typeof initialCheckTimer === "object" && "unref" in initialCheckTimer) {
+      initialCheckTimer.unref();
+    }
     timer = setInterval(() => void runCheck(), checkIntervalMs);
     if (typeof timer === "object" && "unref" in timer) {
       timer.unref();

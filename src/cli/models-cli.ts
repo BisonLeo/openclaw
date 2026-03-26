@@ -1,6 +1,5 @@
 import type { Command } from "commander";
 import {
-  githubCopilotLoginCommand,
   modelsAliasesAddCommand,
   modelsAliasesListCommand,
   modelsAliasesRemoveCommand,
@@ -24,6 +23,7 @@ import {
   modelsSetCommand,
   modelsSetImageCommand,
   modelsStatusCommand,
+  modelsTestpingCommand,
 } from "../commands/models.js";
 import { defaultRuntime } from "../runtime.js";
 import { formatDocsLink } from "../terminal/links.js";
@@ -275,6 +275,20 @@ export function registerModelsCli(program: Command) {
       });
     });
 
+  models
+    .command("testping")
+    .description("Ping configured models and measure latency")
+    .argument("[filters...]", "Glob patterns to filter models (e.g. openai/*, */gpt-5.4*)")
+    .option("--timeout <ms>", "Per-model timeout in ms (default: 15000)")
+    .option("--concurrency <n>", "Concurrent probes (default: 4)")
+    .option("--json", "Output JSON", false)
+    .option("--plain", "Plain line output", false)
+    .action(async (filters: string[], opts) => {
+      await runModelsCommand(async () => {
+        await modelsTestpingCommand(filters, opts, defaultRuntime);
+      });
+    });
+
   models.action(async (opts) => {
     await runModelsCommand(async () => {
       await modelsStatusCommand(
@@ -364,13 +378,13 @@ export function registerModelsCli(program: Command) {
   auth
     .command("login-github-copilot")
     .description("Login to GitHub Copilot via GitHub device flow (TTY required)")
-    .option("--profile-id <id>", "Auth profile id (default: github-copilot:github)")
     .option("--yes", "Overwrite existing profile without prompting", false)
     .action(async (opts) => {
       await runModelsCommand(async () => {
-        await githubCopilotLoginCommand(
+        await modelsAuthLoginCommand(
           {
-            profileId: opts.profileId as string | undefined,
+            provider: "github-copilot",
+            method: "device",
             yes: Boolean(opts.yes),
           },
           defaultRuntime,
