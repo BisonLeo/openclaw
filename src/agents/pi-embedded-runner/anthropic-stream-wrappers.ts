@@ -381,6 +381,75 @@ export function resolveAnthropicFastMode(
   return resolveFastModeParam(extraParams);
 }
 
+/**
+ * Stabilize the Anthropic prompt-cache prefix across turns.
+ *
+ * pi-ai places a single `cache_control` breakpoint on the **last** user
+ * message.  On the next turn that message is no longer last, so its
+ * breakpoint disappears and the prefix hash changes — guaranteeing a
+ * cache miss even though the content is identical.
+ *
+ * This wrapper adds `cache_control` to the **second-to-last** user
+ * message.  Because that was the "last" user message in the previous
+ * request, its breakpoint aligns with the cache written on the previous
+ * turn, enabling a cache read for the entire conversation history up to
+ * the previous turn.
+ *
+ * Anthropic enforces a hard limit of 4 `cache_control` blocks per
+ * request.  With this wrapper the count is 3:
+ *   1. system prompt  (from pi-ai, stable)
+ *   2. second-to-last user message  (this wrapper)
+ *   3. last user message  (from pi-ai)
+ */
+export function createAnthropicCachePrefixStabilityWrapper(
+  baseStreamFn: StreamFn | undefined,
+): StreamFn {
+  const underlying = baseStreamFn ?? streamSimple;
+  return (model, context, options) => {
+    if (model.api !== "anthropic-messages") {
+      return underlying(model, context, options);
+    }
+    const originalOnPayload = options?.onPayload;
+    return underlying(model, context, {
+      ...options,
+      onPayload: (payload) => {
+        if (payload && typeof payload === "object") {
+          const messages = (payload as Record<string, unknown>).messages;
+          if (Array.isArray(messages)) {
+            // Walk backwards to find the last two user messages.
+            const userIndices: number[] = [];
+            for (let i = messages.length - 1; i >= 0 && userIndices.length < 2; i -= 1) {
+              const msg = messages[i] as { role?: string } | undefined;
+              if (msg?.role === "user") {
+                userIndices.push(i);
+              }
+            }
+            if (userIndices.length >= 2) {
+              const secondLastIdx = userIndices[1];
+              const msg = messages[secondLastIdx] as {
+                content?: unknown;
+              };
+              if (Array.isArray(msg.content) && msg.content.length > 0) {
+                const lastBlock = msg.content[msg.content.length - 1] as
+                  | Record<string, unknown>
+                  | undefined;
+                if (lastBlock && typeof lastBlock === "object" && !lastBlock.cache_control) {
+                  lastBlock.cache_control = { type: "ephemeral" };
+                }
+              } else if (typeof msg.content === "string") {
+                (msg as Record<string, unknown>).content = [
+                  { type: "text", text: msg.content, cache_control: { type: "ephemeral" } },
+                ];
+              }
+            }
+          }
+        }
+        return originalOnPayload?.(payload, model);
+      },
+    });
+  };
+}
+
 export function createBedrockNoCacheWrapper(baseStreamFn: StreamFn | undefined): StreamFn {
   const underlying = baseStreamFn ?? streamSimple;
   return (model, context, options) =>

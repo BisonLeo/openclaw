@@ -57,5 +57,5 @@ export {
   resolveSenderCommandAuthorizationWithRuntime,
 } from "./command-auth.js";
 export { createTypingCallbacks } from "../channels/typing.js";
-export { stripMarkdown } from "../line/markdown-to-line.js";
+export { stripMarkdown } from "../shared/text/strip-markdown.js";
 export { withFileLock } from "./file-lock.js";
