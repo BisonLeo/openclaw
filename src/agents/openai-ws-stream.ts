@@ -34,6 +34,7 @@ import type {
   TextContent,
   ToolCall,
 } from "@mariozechner/pi-ai";
+import { updateFromWsRateLimits, waitIfNeeded } from "./openai-rate-limit-tracker.js";
 import {
   OpenAIWebSocketManager,
   type ContentPart,
@@ -896,6 +897,16 @@ export function createOpenAIWebSocketStreamFn(
         OpenAIWebSocketManager["send"]
       >[0];
 
+      // Pre-send throttle: wait if rate limit budget is exhausted or low.
+      await waitIfNeeded(
+        "https://api.openai.com",
+        apiKey,
+        (delayMs, reason) => {
+          log.info(`[ws-stream] session=${sessionId} throttling ${delayMs}ms — ${reason}`);
+        },
+        signal,
+      );
+
       try {
         session.manager.send(requestPayload);
       } catch (sendErr) {
@@ -990,6 +1001,13 @@ export function createOpenAIWebSocketStreamFn(
               delta: event.delta,
               partial: partialMsg,
             });
+          } else if (event.type === "rate_limits.updated") {
+            // Track rate limit budget for proactive throttling on next send.
+            updateFromWsRateLimits("https://api.openai.com", apiKey, event.rate_limits);
+            const summary = event.rate_limits
+              .map((r) => `${r.name}=${r.remaining}/${r.limit} reset=${r.reset_seconds}s`)
+              .join(" ");
+            log.info(`[ws-stream] session=${sessionId} rate_limits.updated: ${summary}`);
           }
         });
       });

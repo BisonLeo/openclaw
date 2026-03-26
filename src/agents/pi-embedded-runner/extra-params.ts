@@ -1,6 +1,7 @@
 import type { StreamFn } from "@mariozechner/pi-agent-core";
 import type { SimpleStreamOptions } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
+import { installOpenAIFetchInterceptor } from "../../agents/openai-fetch-interceptor.js";
 import type { ThinkLevel } from "../../auto-reply/thinking.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import {
@@ -248,6 +249,8 @@ export function applyExtraParamsToAgent(
     if (provider === "openai") {
       // Default OpenAI Responses to WebSocket-first with transparent SSE fallback.
       agent.streamFn = createOpenAIDefaultTransportWrapper(agent.streamFn);
+      // Install global fetch interceptor for HTTP-path rate limit tracking.
+      installOpenAIFetchInterceptor();
     }
     agent.streamFn = createOpenAIAttributionHeadersWrapper(agent.streamFn);
   }
